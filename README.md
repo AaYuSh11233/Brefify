@@ -62,7 +62,7 @@ Looking ahead, there are several areas where Brefify could be enhanced:
 - Adding support for voice input and output
 - Expanding the AI capabilities to include translation and text analysis
 - Improving the UI/UX based on user feedback and usage patterns
-- This extension is not suitable for google searches as of now and some web apps only suitable for webpages,websites,weblinks in future in future i am planning to fix these issues.
+- This extension is not suitable for google searches as of now and some web apps only suitable for webpages,websites,weblinks in future we are planning to fix these issues.
 
 ## Get in Touch
 
