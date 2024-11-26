@@ -193,10 +193,10 @@ ul.chatbox {
   height: 510px;
   overflow-y: auto;
   padding: 30px 20px 100px;
-  background-image: url(chrome-extension://__MSG_@@extension_id__/wall.jpg);
+/*   background-image: url(chrome-extension://__MSG_@@extension_id__/wall.jpg);
   background-size: cover;
   background-position: center center;
-  background-repeat: no-repeat;
+  background-repeat: no-repeat; */
 }
 
 .chatbox .chat {
