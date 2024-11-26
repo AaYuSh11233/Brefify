@@ -1,0 +1,41 @@
+{
+  "manifest_version": 3,
+  "name": "Brefify",
+  "version": "1.0",
+  "description": "A floating chat button for every website",
+  "permissions": [
+    "activeTab"
+  ],
+  "content_scripts": [
+    {
+      "matches": [
+        "<all_urls>"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "js": [
+        "content.js"
+      ]
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_icon": "Brefify.png"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": [
+        "bot.jpg",
+        "wall.jpg",
+        "12.jpg"
+      ],
+      "matches": [
+        "<all_urls>"
+      ]
+    }
+  ],
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com;"
+  }
+}
