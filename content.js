@@ -374,22 +374,22 @@ async function rewriteSummary(language) {
   }
 }
 
-function addStyles() {
-  const style = document.createElement('style');
-  // Replace __MSG_@@extension_id__ with actual extension ID at runtime
-  const styles = document.querySelector('.chatbot .chatbox')?.style.cssText
-    .replace('__MSG_@@extension_id__', chrome.runtime.id);
+// function addStyles() {
+//   const style = document.createElement('style');
+//   // Replace __MSG_@@extension_id__ with actual extension ID at runtime
+//   const styles = document.querySelector('.chatbot .chatbox')?.style.cssText
+//     .replace('__MSG_@@extension_id__', chrome.runtime.id);
   
-  if (styles) {
-    style.textContent = styles;
-    document.head.appendChild(style);
-  }
-}
+//   if (styles) {
+//     style.textContent = styles;
+//     document.head.appendChild(style);
+//   }
+// }
 
 function initializeChatbot() {
   createChatButtons();
   createChatbot();
-  addStyles();
+  // addStyles();
   // Both buttons should be visible initially
   const chatbotToggler = document.querySelector('.chatbot-toggler');
   const summarizerButton = document.querySelector('.chatbot-summarizer');
