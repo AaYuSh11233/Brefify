@@ -58,7 +58,7 @@ Developing Brefify came with its share of challenges:
 
 Looking ahead, there are several areas where Brefify could be enhanced:
 
-- Implementing more advanced natural language processing techniques for better summarization
+- Implementing more advanced natural language processing techniques for better summarization and also there might be some languages which ever after selecting will show the summarized content in English as for those selected languages I was unable to write their proper language code. wil fix in future.
 - Adding support for voice input and output
 - Expanding the AI capabilities to include translation and text analysis
 - Improving the UI/UX based on user feedback and usage patterns
