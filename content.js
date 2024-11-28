@@ -17,19 +17,41 @@ addFontAwesomeLink();
 
 const API_KEY = "AIzaSyC-wr6H1HERa9gHYGF8YD--Y_5APKr-jRE";
 
+let isSummarizerActive = false;
+let isChatbotActive = false;
+
 function createChatButtons() {
   const chatButton = document.createElement('button');
   chatButton.className = 'chatbot-toggler';
-  chatButton.innerHTML = '<span class="material-symbols-outlined">summarize</span><span class="material-symbols-outlined">close</span>';
+  chatButton.innerHTML = '<span class="material-symbols-outlined">smart_toy</span><span class="material-symbols-outlined">close</span>';
   document.body.appendChild(chatButton);
 
   const summarizerButton = document.createElement('button');
   summarizerButton.className = 'chatbot-summarizer';
-  summarizerButton.innerHTML = '<span class="material-symbols-outlined">smart_toy</span>';
+  summarizerButton.innerHTML = '<span class="material-symbols-outlined">summarize</span>';
   document.body.appendChild(summarizerButton);
 
-  chatButton.addEventListener('click', toggleSummarizer);
-  summarizerButton.addEventListener('click', toggleChatbot);
+  chatButton.addEventListener('click', () => {
+    if (!isChatbotActive) {
+      if (isSummarizerActive) {
+        toggleSummarizer();
+      }
+      toggleChatbot();
+    } else {
+      toggleChatbot();
+    }
+  });
+
+  summarizerButton.addEventListener('click', () => {
+    if (!isSummarizerActive) {
+      if (isChatbotActive) {
+        toggleChatbot();
+      }
+      toggleSummarizer();
+    } else {
+      toggleSummarizer();
+    }
+  });
 }
 
 function createChatbot() {
@@ -84,22 +106,29 @@ function toggleChatbot() {
   const chatbotToggler = document.querySelector('.chatbot-toggler');
 
   if (chatbot) {
+    isChatbotActive = !isChatbotActive;
     chatbot.classList.toggle('show-chatbot');
-    const isChatbotVisible = chatbot.classList.contains('show-chatbot');
     
-    if (isChatbotVisible) {
+    if (isChatbotActive) {
       if (summarizer) summarizer.classList.remove('show-summarizer');
+      isSummarizerActive = false;
       chatbotToggler.style.display = 'flex';
       summarizerButton.classList.add('show-chatbot');
       document.body.classList.add('show-chatbot');
+      
+      const textarea = chatbot.querySelector('textarea');
+      if (textarea) {
+        textarea.value = '';
+        textarea.disabled = false;
+      }
     } else {
       summarizerButton.classList.remove('show-chatbot');
       document.body.classList.remove('show-chatbot');
     }
   }
 
-  // Always show the chatbot toggler (mode_comment button)
   chatbotToggler.style.display = 'flex';
+  summarizerButton.style.display = 'flex';
 }
 
 function toggleSummarizer() {
@@ -110,20 +139,20 @@ function toggleSummarizer() {
 
   if (!summarizer) {
     createSummarizer();
+    isSummarizerActive = true;
   } else {
+    isSummarizerActive = !isSummarizerActive;
     summarizer.classList.toggle('show-summarizer');
   }
 
   if (chatbot) {
     chatbot.classList.remove('show-chatbot');
+    isChatbotActive = false;
     summarizerButton.classList.remove('show-chatbot');
     document.body.classList.remove('show-chatbot');
   }
 
-  // Show the summarizer button when toggling summarizer
   summarizerButton.style.display = 'flex';
-
-  // Always keep the chatbot toggler (mode_comment button) visible
   chatbotToggler.style.display = 'flex';
 }
 
@@ -147,7 +176,25 @@ async function generateResponse(incomingChatLi, userMessage) {
       contents: [{ 
         role: "user", 
         parts: [{ text: userMessage }] 
-      }] 
+      }],
+      safetySettings: [
+        {
+          category: "HARM_CATEGORY_HARASSMENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_HATE_SPEECH",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        },
+        {
+          category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+          threshold: "BLOCK_MEDIUM_AND_ABOVE"
+        }
+      ]
     })
   };
 
@@ -155,23 +202,32 @@ async function generateResponse(incomingChatLi, userMessage) {
     const response = await fetch(API_URL, requestOptions);
     
     if (!response.ok) {
-      throw new Error(`Error fetching data: ${response.statusText}`);
+      const errorData = await response.json();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${JSON.stringify(errorData)}`);
     }
 
     const data = await response.json();
 
-    if (data && data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-      messageElement.textContent = data.candidates[0].content.parts[0].text;
-      incomingChatLi.classList.add("incoming-response");
-    } else {
+    if (!data || !data.candidates || data.candidates.length === 0) {
+      throw new Error("Empty response from API");
+    }
+
+    const candidate = data.candidates[0];
+    if (!candidate.content || !candidate.content.parts || candidate.content.parts.length === 0) {
       throw new Error("Invalid response structure");
     }
-  } catch (error) {
-    if (messageElement) {
-      messageElement.classList.add("error");
-      messageElement.textContent = "Oops! Something went wrong. Please try again.";
+
+    const responseText = candidate.content.parts[0].text;
+    if (typeof responseText !== 'string' || responseText.trim() === '') {
+      throw new Error("Empty or invalid response text");
     }
-    console.error(error);
+
+    messageElement.textContent = responseText;
+    incomingChatLi.classList.add("incoming-response");
+  } catch (error) {
+    console.error("Error in generateResponse:", error);
+    messageElement.classList.add("error");
+    messageElement.textContent = `Error: ${error.message}. Please try again.`;
   } finally {
     scrollToBottom();
   }
@@ -184,25 +240,38 @@ function scrollToBottom() {
   }
 }
 
-function handleChat() {
+async function handleChat() {
+  if (!isChatbotActive) return;
+
   const chatInput = document.querySelector(".chat-input textarea");
   const chatbox = document.querySelector(".chatbox");
+
+  if (!chatInput || !chatbox) return;
 
   let userMessage = chatInput.value.trim();
   if (!userMessage) return;
 
   chatInput.value = "";
+  chatInput.disabled = true;
   adjustTextareaHeight();
 
   chatbox.appendChild(createChatLi(userMessage, "outgoing"));
   scrollToBottom();
 
-  setTimeout(() => {
+  try {
     const incomingChatLi = createChatLi("Thinking...", "incoming");
     chatbox.appendChild(incomingChatLi);
     scrollToBottom();
-    generateResponse(incomingChatLi, userMessage);
-  }, 600);
+    await generateResponse(incomingChatLi, userMessage);
+  } catch (error) {
+    console.error('Chat handling error:', error);
+    const errorMessage = createChatLi(`Error: ${error.message}. Please try again.`, "incoming");
+    errorMessage.querySelector("p").classList.add("error");
+    chatbox.appendChild(errorMessage);
+  } finally {
+    chatInput.disabled = false;
+    chatInput.focus();
+  }
 }
 
 function adjustTextareaHeight() {
@@ -283,7 +352,7 @@ function createSummarizer() {
     setTimeout(() => {
       languageDropdown.classList.add('hidden');
       languageInput.readOnly = true;
-      languageInput.value = languages[selectedLanguage];
+      languageInput.value = languages[selectedLanguage] || 'English';
     }, 200);
   });
 
@@ -291,14 +360,13 @@ function createSummarizer() {
     if (!summarizerContainer.contains(e.target)) {
       languageDropdown.classList.add('hidden');
       languageInput.readOnly = true;
-      languageInput.value = languages[selectedLanguage];
+      languageInput.value = languages[selectedLanguage] || 'English';
     }
   });
 
   const closeBtn = summarizerContainer.querySelector('.close-btn');
   closeBtn.addEventListener('click', () => {
     toggleSummarizer();
-    // Ensure both buttons are visible after closing
     document.querySelector('.chatbot-toggler').style.display = 'flex';
     document.querySelector('.chatbot-summarizer').style.display = 'flex';
   });
@@ -313,11 +381,31 @@ function createSummarizer() {
 }
 
 async function summarizeContent(language) {
+  if (!isSummarizerActive) return;
+
   const summaryOutput = document.querySelector('#summary-output');
+  if (!summaryOutput) return;
+
   summaryOutput.textContent = 'Summarizing...';
 
   try {
     const pageContent = document.body.innerText;
+    
+    // Limit the content length to avoid exceeding API limits
+    const maxContentLength = 10000;
+    const truncatedContent = pageContent.length > maxContentLength 
+      ? pageContent.slice(0, maxContentLength) + '...(truncated)'
+      : pageContent;
+
+    // Enhanced prompt for better language handling
+    const languagePrompt = `Please provide a comprehensive summary of the following content in ${language}. 
+    The summary should be clear, coherent, and natural in the target language, 
+    maintaining the key points while being culturally appropriate for ${language} speakers. 
+    Maximum length: 200 words.
+
+    Content to summarize:
+    ${truncatedContent}`;
+
     const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=' + API_KEY, {
       method: 'POST',
       headers: {
@@ -326,29 +414,95 @@ async function summarizeContent(language) {
       body: JSON.stringify({
         contents: [{ 
           role: "user", 
-          parts: [{ text: `Summarize the following content in ${language} (up to 200 words):\n\n${pageContent}` }] 
-        }]
+          parts: [{ text: languagePrompt }] 
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          }
+        ]
       })
     });
 
-    const data = await response.json();
-    if (data && data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-      summaryOutput.textContent = data.candidates[0].content.parts[0].text;
-    } else {
-      throw new Error('Unexpected response structure');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${JSON.stringify(errorData)}`);
     }
+
+    const data = await response.json();
+    
+    // Enhanced error handling and response validation
+    if (!data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Invalid API response structure');
+    }
+
+    const summary = data.candidates[0].content.parts[0].text.trim();
+    
+    // Verify we got actual content
+    if (summary.length < 10) {
+      throw new Error('Summary too short - possible language generation error');
+    }
+
+    summaryOutput.textContent = summary;
+
   } catch (error) {
-    console.error('Error summarizing content:', error);
-    summaryOutput.textContent = 'Error summarizing content. Please try again.';
+    console.error('Error in API call:', error);
+    let errorMessage = 'An error occurred. Please try again.';
+    if (error.message.includes('HTTP error!')) {
+      try {
+        const errorData = JSON.parse(error.message.split('message: ')[1]);
+        errorMessage = `API Error: ${errorData.error.message}`;
+      } catch (e) {
+        errorMessage = error.message;
+      }
+    }
+    summaryOutput.textContent = errorMessage;
   }
 }
 
 async function rewriteSummary(language) {
+  if (!isSummarizerActive) return;
+
   const summaryOutput = document.querySelector('#summary-output');
+  if (!summaryOutput) return;
+
   const currentSummary = summaryOutput.textContent;
+  if (!currentSummary || currentSummary.trim().length < 10) {
+    summaryOutput.textContent = 'Please generate a summary first.';
+    return;
+  }
+
   summaryOutput.textContent = 'Rewriting...';
 
   try {
+    // Enhanced prompt for better language handling
+    const rewritePrompt = `Please rewrite the following summary in ${language}. 
+    The rewrite should be natural and fluent in ${language}, 
+    maintaining the key information while being culturally appropriate. 
+    Maximum length: 200 words.
+
+    Summary to rewrite:
+    ${currentSummary}`;
+
     const response = await fetch('https://generativelanguage.googleapis.com/v1/models/gemini-pro:generateContent?key=' + API_KEY, {
       method: 'POST',
       headers: {
@@ -357,40 +511,86 @@ async function rewriteSummary(language) {
       body: JSON.stringify({
         contents: [{ 
           role: "user", 
-          parts: [{ text: `Rewrite the following summary in ${language} (up to 200 words):\n\n${currentSummary}` }] 
-        }]
+          parts: [{ text: rewritePrompt }] 
+        }],
+        generationConfig: {
+          temperature: 0.7,
+          topK: 40,
+          topP: 0.95,
+          maxOutputTokens: 1024,
+        },
+        safetySettings: [
+          {
+            category: "HARM_CATEGORY_HARASSMENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_HATE_SPEECH",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_SEXUALLY_EXPLICIT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          },
+          {
+            category: "HARM_CATEGORY_DANGEROUS_CONTENT",
+            threshold: "BLOCK_MEDIUM_AND_ABOVE"
+          }
+        ]
       })
     });
 
-    const data = await response.json();
-    if (data && data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
-      summaryOutput.textContent = data.candidates[0].content.parts[0].text;
-    } else {
-      throw new Error('Unexpected response structure');
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`HTTP error! status: ${response.status}, message: ${JSON.stringify(errorData)}`);
     }
+
+    const data = await response.json();
+    
+    // Enhanced error handling and response validation
+    if (!data?.candidates?.[0]?.content?.parts?.[0]?.text) {
+      throw new Error('Invalid API response structure');
+    }
+
+    const rewritten = data.candidates[0].content.parts[0].text.trim();
+    
+    // Verify we got actual content
+    if (rewritten.length < 10) {
+      throw new Error('Rewritten text too short - possible language generation error');
+    }
+
+    summaryOutput.textContent = rewritten;
+
   } catch (error) {
-    console.error('Error rewriting summary:', error);
-    summaryOutput.textContent = 'Error rewriting summary. Please try again.';
+    console.error('Error in API call:', error);
+    let errorMessage = 'An error occurred. Please try again.';
+    if (error.message.includes('HTTP error!')) {
+      try {
+        const errorData = JSON.parse(error.message.split('message: ')[1]);
+        errorMessage = `API Error: ${errorData.error.message}`;
+      } catch (e) {
+        errorMessage = error.message;
+      }
+    }
+    summaryOutput.textContent = errorMessage;
   }
 }
 
-// function addStyles() {
-//   const style = document.createElement('style');
-//   // Replace __MSG_@@extension_id__ with actual extension ID at runtime
-//   const styles = document.querySelector('.chatbot .chatbox')?.style.cssText
-//     .replace('__MSG_@@extension_id__', chrome.runtime.id);
+function addStyles() {
+  const style = document.createElement('style');
+  const styles = document.querySelector('.chatbot .chatbox')?.style.cssText
+    .replace('__MSG_@@extension_id__', chrome.runtime.id);
   
-//   if (styles) {
-//     style.textContent = styles;
-//     document.head.appendChild(style);
-//   }
-// }
+  if (styles) {
+    style.textContent = styles;
+    document.head.appendChild(style);
+  }
+}
 
 function initializeChatbot() {
   createChatButtons();
   createChatbot();
-  // addStyles();
-  // Both buttons should be visible initially
+  addStyles();
   const chatbotToggler = document.querySelector('.chatbot-toggler');
   const summarizerButton = document.querySelector('.chatbot-summarizer');
   if (chatbotToggler) chatbotToggler.style.display = 'flex';
@@ -398,3 +598,4 @@ function initializeChatbot() {
 }
 
 initializeChatbot();
+
