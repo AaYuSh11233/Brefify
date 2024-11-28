@@ -15,7 +15,7 @@ function addFontAwesomeLink() {
 addFontLink();
 addFontAwesomeLink();
 
-const API_KEY = "AIzaSyC-wr6H1HERa9gHYGF8YD--Y_5APKr-jRE";
+const API_KEY = "YOUR_GEMINI_API_KEY";
 
 let isSummarizerActive = false;
 let isChatbotActive = false;
